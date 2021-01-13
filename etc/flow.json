@@ -1,0 +1,18 @@
+{
+    "graph": {
+        "nodes": {
+            "capture": {
+                "metadata": {
+                    "interface": "lo"
+                }
+            },
+            "protocol": {}
+        },
+        "edges": [
+            {
+                "source": "capture",
+                "target": "protocol"
+            }
+        ]
+    }
+}
