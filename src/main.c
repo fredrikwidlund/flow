@@ -1,11 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include <signal.h>
 #include <err.h>
 
-#include <dynamic.h>
-#include <reactor.h>
 #include <jansson.h>
+#include <reactor.h>
 
 #include "flow.h"
 
@@ -19,20 +17,25 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
-  flow f;
-  int e;
+  json_t *spec;
+  flow flow;
 
   if (argc != 2)
     usage();
+  spec = json_load_file(argv[1], 0, NULL);
+  if (!spec)
+    err(1, "json_load_file");
 
-  core_construct(NULL);
-  flow_construct(&f);
-  e = flow_load(&f, argv[1]);
-  if (e == -1)
-    err(1, "flow_load");
+  reactor_construct();
+  signal(SIGINT, SIG_DFL);
+  flow_construct(&flow, NULL, NULL);
+  flow_configure(&flow, spec);
+  if (flow.errors)
+    err(1, "flow_configure");
 
-  core_loop(NULL);
+  reactor_loop();
 
-  flow_destruct(&f);
-  core_destruct(NULL);
+  flow_destruct(&flow);
+  reactor_destruct();
+  json_decref(spec);
 }

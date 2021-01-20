@@ -1,0 +1,11 @@
+{
+    "graph": {
+        "nodes": {
+            "capture": {"metadata": {"interface": "enp68s0f0"}},
+            "statistics": {}
+        },
+        "edges": [
+            {"source": "capture", "target": "statistics"}
+        ]
+    }
+}

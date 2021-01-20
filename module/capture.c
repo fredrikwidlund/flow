@@ -1,8 +1,10 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <err.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/epoll.h>
@@ -23,32 +25,23 @@
 #include "flow.h"
 #include "capture.h"
 
-typedef struct capture capture;
-struct capture
-{
-  flow_node *node;
-  int interface;
-  int fd;
-  int block;
-  void *data;
-};
-
 static void *offset(void *p, size_t offset)
 {
   return ((uint8_t *) p) + offset;
 }
 
-static core_status packets(core_event *event)
+static core_status event(core_event *event)
 {
-  capture *c = event->state;
+  capture *capture = event->state;
   struct tpacket_block_desc *bh;
   struct tpacket3_hdr *tp;
   capture_frame f;
+  core_status e;
 
   if (event->data == EPOLLIN)
     while (1)
     {
-      bh = offset(c->data, c->block * 128 * 4096);
+      bh = offset(capture->data, capture->block * 128 * 4096);
       if (!bh->hdr.bh1.block_status & TP_STATUS_USER)
         break;
       tp = offset(bh, bh->hdr.bh1.offset_to_first_pkt);
@@ -56,94 +49,79 @@ static core_status packets(core_event *event)
       {
         f.sll = offset(tp, TPACKET_ALIGN(sizeof(struct tpacket3_hdr)));
         f.data = segment_data(offset(tp, tp->tp_mac), tp->tp_len);
-        flow_send(c->node, &f);
+        e = core_dispatch(&capture->user, CAPTURE_FRAME, (uintptr_t) &f);
+        if (e)
+          return e;
         if (tp->tp_next_offset == 0)
           break;
         tp = offset(tp, tp->tp_next_offset);
       }
       bh->hdr.bh1.block_status = TP_STATUS_KERNEL;
-      c->block++;
-      c->block %= 4;
+      capture->block++;
+      capture->block %= 4;
     }
   return CORE_OK;
 }
 
-static int setup(capture *c)
+static void *new (core_callback *callback, void *state, json_t *spec)
 {
-  struct ifreq ifr = {0};
-  int e;
+  capture *capture;
 
-  e = setsockopt(c->fd, SOL_PACKET, PACKET_VERSION, (int[]) {TPACKET_V3}, sizeof(int));
-  if (e == -1)
-    return -1;
-  e = setsockopt(c->fd, SOL_PACKET, PACKET_RX_RING, (struct tpacket_req3[]) {{128 * 4096, 4, 4096, 4 * 128, 0, 0, 0}},
-                 sizeof(struct tpacket_req3));
-  if (e == -1)
-    return -1;
-  c->data = mmap(NULL, 4096 * 128 * 4, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED | MAP_POPULATE, c->fd, 0);
-  if (!c->data)
-    return -1;
-  memset(c->data, 0, 4096 * 128 * 4);
-  e = bind(c->fd,
-           (struct sockaddr *) (struct sockaddr_ll[]) {{PF_PACKET, htons(ETH_P_ALL), c->interface, 0, 0, 0, {0}}},
-           sizeof(struct sockaddr_ll));
-  if (e == -1)
-    return -1;
-
-  if_indextoname(c->interface, ifr.ifr_name);
-  e = ioctl(c->fd, SIOCGIFFLAGS, &ifr);
-  if (e == -1)
-    return -1;
-  ifr.ifr_flags |= IFF_PROMISC;
-  e = ioctl(c->fd, SIOCSIFFLAGS, &ifr);
-  if (e == -1)
-    return -1;
-
-  return 0;
+  capture = malloc(sizeof *capture);
+  *capture = (struct capture) {.user = {.callback = callback, .state = state}, .spec = spec, .fd = -1};
+  return capture;
 }
 
-static void *create(flow_node *node, json_t *spec)
+static void release(void *data)
 {
-  const char *name;
-  capture *c;
-  int i;
+  capture *capture = data;
 
-  name = json_string_value(json_object_get(spec, "interface"));
-  if (!name)
-    return NULL;
-  i = if_nametoindex(name);
-  if (!i)
-    return NULL;
-
-  c = calloc(1, sizeof *c);
-  c->node = node;
-  c->interface = i;
-  return c;
-}
-
-static int start(void *data)
-{
-  capture *c = data;
-  int e;
-
-  c->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-  if (c->fd == -1)
-    return -1;
-  e = setup(c);
-  if (e == -1)
+  if (capture->fd >= 0)
   {
-    (void) close(c->fd);
-    c->fd = -1;
-    return -1;
+    core_delete(NULL, capture->fd);
+    (void) close(capture->fd);
   }
-
-  core_add(NULL, packets, c, c->fd, EPOLLIN | EPOLLET);
-  return 0;
+  free(capture);
 }
 
-static void destroy(void *data)
+static void start(void *data)
 {
-  free(data);
+  capture *capture = data;
+  const char *name;
+  int e;
+
+  name = json_string_value(json_object_get(capture->spec, "interface"));
+  assert(name);
+  capture->interface = if_nametoindex(name);
+
+  struct tpacket_req3 tp = {
+      .tp_block_size = 128 * 4096, .tp_block_nr = 4, .tp_frame_size = 4096, .tp_frame_nr = 4 * 128};
+  struct sockaddr_ll sll = {
+      .sll_family = PF_PACKET, .sll_protocol = htons(ETH_P_ALL), .sll_ifindex = capture->interface};
+  capture->fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  assert(capture->fd >= 0);
+  e = setsockopt(capture->fd, SOL_PACKET, PACKET_VERSION, (int[]) {TPACKET_V3}, sizeof(int));
+  assert(e != -1);
+  e = setsockopt(capture->fd, SOL_PACKET, PACKET_RX_RING, &tp, sizeof tp);
+  assert(e != -1);
+  capture->data =
+      mmap(NULL, 4096 * 128 * 4, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_LOCKED | MAP_POPULATE, capture->fd, 0);
+  assert(capture->data);
+  memset(capture->data, 0, 4096 * 128 * 4);
+  e = bind(capture->fd, (struct sockaddr *) &sll, sizeof sll);
+  assert(e != -1);
+
+  struct ifreq ifr = {0};
+  if_indextoname(capture->interface, ifr.ifr_name);
+  e = ioctl(capture->fd, SIOCGIFFLAGS, &ifr);
+  if (e == -1)
+    err(1, "ioctl");
+  ifr.ifr_flags |= IFF_PROMISC;
+  e = ioctl(capture->fd, SIOCSIFFLAGS, &ifr);
+  if (e == -1)
+    err(1, "ioctl");
+
+  core_add(NULL, event, capture, capture->fd, EPOLLIN | EPOLLET);
 }
 
-flow_module_handlers module_handlers = {.create = create, .start = start, .destroy = destroy};
+flow_table module_table = {.new = new, .release = release, .start = start};

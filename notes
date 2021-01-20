@@ -1,0 +1,6 @@
+* add message types (a la unique module pointer type)
+* core_dispatch or flow_emit(xxx, type, message)?
+* more simple/options module interface?
+
+flow_send(capture->node, capture_frame_type, frame);
+-> module_receive(state, type, message)
