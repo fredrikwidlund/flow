@@ -1,7 +1,6 @@
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
-#AM_CFLAGS = -std=gnu11 -pedantic -g -O3 -flto -rdynamic -Isrc -Imodule -fPIC
-AM_CFLAGS = -std=gnu11 -g -O3 -flto -rdynamic -Isrc -Imodule -fPIC
+AM_CFLAGS = -std=gnu11 -pedantic -g -O3 -flto -rdynamic -Isrc -Imodule -fPIC
 AM_LDFLAGS = -module
 
 EXTRA_DIST = \
