@@ -1,0 +1,25 @@
+{
+    "graph": {
+        "metadata": {
+            "debug": true
+        },
+        "nodes": {
+            "1": {
+                "metadata": {
+                    "module": "test"
+                }
+            },
+            "2": {
+                "metadata": {
+                    "module": "test2"
+                }
+            }
+        },
+        "edges": [
+            {
+                "source": "1",
+                "target": "2"
+            }
+        ]
+    }
+}

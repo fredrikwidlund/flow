@@ -4,7 +4,8 @@ AC_CONFIG_AUX_DIR(autotools)
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign no-define])
 
-: ${CFLAGS="-Wall -Wextra -Werror"}
+#: ${CFLAGS="-Wall -Wextra -Werror"}
+: ${CFLAGS="-Wall -Wextra"}
 
 AM_PROG_AR
 LT_INIT

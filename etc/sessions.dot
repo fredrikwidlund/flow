@@ -1,4 +1,0 @@
-digraph flow {
-    rankdir="LR";
-    capture -> protocol -> sessions -> statistics;
-}

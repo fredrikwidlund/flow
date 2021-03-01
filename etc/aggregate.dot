@@ -1,6 +1,0 @@
-digraph flow {
-    rankdir="LR";
-    capture -> statistics;
-    capture -> protocol -> sessions -> portscan -> aggregate -> location;
-    sessions -> aggregate;
-}

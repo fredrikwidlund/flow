@@ -1,5 +1,0 @@
-digraph flow {
-    rankdir="LR";
-    capture [interface="enp68s0f0"];
-    capture -> statistics;
-}
