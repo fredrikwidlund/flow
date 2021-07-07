@@ -1,131 +1,156 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <limits.h>
-#include <dlfcn.h>
+ #define _GNU_SOURCE
 
+#include <assert.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <ltdl.h>
+
+#include <jansson.h>
 #include <dynamic.h>
 #include <reactor.h>
-#include <jansson.h>
 
 #include "flow.h"
 
-static flow_node *flow_lookup_node(flow *flow, const char *id)
+static core_status flow_stats(core_event *event)
 {
+  flow *flow = event->state;
   flow_node *node;
+  int i = 0;
 
-  list_foreach(&flow->nodes, node) if (strcmp(node->id, id) == 0) return node;
+  assert(event->type == TIMER_ALARM);
+  list_foreach(&flow->nodes, node)
+  {
+    (void) fprintf(stderr, "%s[%s] %lu/%lu", i ? ", " : "", node->name, node->received, node->sent);
+    i++;
+    node->sent = 0;
+    node->received = 0;
+  }
+  (void) fprintf(stderr, "\n");
 
-  return NULL;
+  return CORE_OK;
 }
 
-static flow_module *flow_load_module(flow *flow, const char *name)
+void flow_construct(flow *flow, core_callback *callback, void *state)
 {
-  flow_module *m;
-  char path[PATH_MAX];
+  *flow = (struct flow) {.user = {.callback = callback, .state = state}};
 
-  list_foreach(&flow->modules, m) if (strcmp(m->name, name) == 0) return m;
-
-  (void) fprintf(stderr, "[load %s]\n", name);
-  m = list_push_back(&flow->modules, NULL, sizeof *m);
-  m->name = strdup(name);
-  snprintf(path, sizeof path, "module/.libs/%s.so", name);
-  m->object = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
-  if (!m->object)
-    return NULL;
-
-  m->handlers = dlsym(m->object, "module_handlers");
-  if (!m->handlers)
-    return NULL;
-
-  if (m->handlers->load)
-    m->state = m->handlers->load();
-
-  return m;
+  flow_log(flow, FLOW_DEBUG, "constructing flow");
+  flow_modules_construct(&flow->modules);
+  flow_nodes_construct(flow);
+  timer_construct(&flow->timer, flow_stats, flow);
 }
 
-void flow_construct(flow *flow)
+void flow_open(flow *flow, json_t *spec)
 {
-  *flow = (struct flow) {0};
-  list_construct(&flow->modules);
-  list_construct(&flow->nodes);
+  json_t *root, *metadata;
+  const char *name, *key;
+  json_t *value;
+  size_t index;
+
+  flow_log(flow, FLOW_DEBUG, "configuring flow");
+
+  root = json_object_get(spec, "graph");
+  metadata = json_object_get(root, "metadata");
+
+  if (json_is_true(json_object_get(metadata, "stats")))
+    timer_set(&flow->timer, 1000000000, 1000000000);
+
+  name = json_string_value(json_object_get(metadata, "name"));
+  assert(name ? asprintf(&flow->name, "%s", name) : asprintf(&flow->name, "%d", getpid()) != -1);
+
+  /* add module search paths */
+  json_array_foreach(json_object_get(metadata, "search"), index, value)
+    flow_search(flow, json_string_value(value));
+
+  /* load modules */
+  json_array_foreach(json_object_get(metadata, "modules"), index, value)
+      flow_load(flow, json_string_value(value));
+
+  /* load module dependencies */
+  json_object_foreach(json_object_get(root, "nodes"), key, value)
+  {
+    name = json_string_value(json_object_get(json_object_get(value, "metadata"), "module"));
+    if (name)
+      flow_load(flow, name);
+    else if (!flow_modules_match_prefix(&flow->modules, key))
+      flow_load(flow, key);
+  }
+
+  /* add nodes */
+  json_object_foreach(json_object_get(root, "nodes"), key, value)
+    flow_add(flow, key, json_object_get(value, "metadata"));
+
+  /* connect nodes */
+  json_array_foreach(json_object_get(root, "edges"), index, value)
+    flow_connect(flow,
+                 json_string_value(json_object_get(value, "source")),
+                 json_string_value(json_object_get(value, "target")));
+}
+
+void flow_close(flow *flow)
+{
+  flow_log(flow, FLOW_DEBUG, "stopping flow");
+  flow_nodes_stop(flow);
 }
 
 void flow_destruct(flow *flow)
 {
-  json_decref(flow->spec);
+  flow_log(flow, FLOW_DEBUG, "destructing flow");
+  flow_close(flow);
+  flow_nodes_destruct(flow);
+  flow_modules_destruct(flow);
+  free(flow->name);
 }
 
-int flow_load(flow *flow, char *path)
+void flow_search(flow *flow, const char *path)
 {
-  return flow_configure(flow, json_load_file(path, 0, NULL));
+  flow_log(flow, FLOW_DEBUG, "adding path %s to module search paths", path);
+  flow_modules_search(path);
 }
 
-int flow_configure(flow *flow, json_t *spec)
+void flow_load(flow *flow, const char *name)
 {
-  const char *name, *key;
-  json_t *value;
-  flow_module *module;
-  flow_node *node, *source, *target;
-  flow_edge *edge;
-  size_t index;
-  int e;
-
-  if (!spec)
-    return -1;
-
-  flow->spec = spec;
-  json_object_foreach(json_object_get(json_object_get(flow->spec, "graph"), "nodes"), key, value)
-  {
-    name = json_string_value(json_object_get(json_object_get(value, "metadata"), "module"));
-    if (!name)
-      name = key;
-    module = flow_load_module(flow, name);
-    if (!module)
-      return -1;
-
-    (void) fprintf(stderr, "[create %s]\n", key);
-    node = list_push_back(&flow->nodes, NULL, sizeof *node);
-    node->module = module;
-    node->id = key;
-    list_construct(&node->edges);
-
-    if (node->module->handlers->create)
-    {
-      node->state = node->module->handlers->create(node, json_object_get(value, "metadata"));
-      if (!node->state)
-        return -1;
-    }
-  }
-
-  json_array_foreach(json_object_get(json_object_get(flow->spec, "graph"), "edges"), index, value)
-  {
-    source = flow_lookup_node(flow, json_string_value(json_object_get(value, "source")));
-    target = flow_lookup_node(flow, json_string_value(json_object_get(value, "target")));
-    if (!source || !target)
-      return -1;
-
-    (void) fprintf(stderr, "[connect %s -> %s]\n", source->id, target->id);
-    edge = list_push_back(&source->edges, NULL, sizeof *edge);
-    edge->type = json_string_value(json_object_get(json_object_get(value, "metadata"), "type"));
-    edge->target = target;
-  }
-
-  list_foreach(&flow->nodes, node) if (node->module->handlers->start)
-  {
-    e = node->module->handlers->start(node->state);
-    if (e == -1)
-      return -1;
-  }
-
-  return 0;
+  flow_log(flow, FLOW_DEBUG, "adding module %s", name);
+  flow_modules_load(flow, name);
 }
 
-void flow_send(flow_node *node, void *data)
+void flow_register(flow *flow, const char *name)
 {
-  flow_edge *edge;
+  flow_log(flow, FLOW_DEBUG, "adding module %s", name);
+  flow_modules_register(flow, name);
+}
 
-  list_foreach(&node->edges, edge) if (edge->target->module->handlers->receive)
-      edge->target->module->handlers->receive(edge->target->state, data);
+void flow_add(flow *flow, const char *name, json_t *spec)
+{
+  flow_log(flow, FLOW_DEBUG, "adding node %s", name);
+  flow_nodes_add(flow, name, spec);
+}
+
+void flow_connect(flow *flow, const char *source, const char *target)
+{
+  flow_log(flow, FLOW_DEBUG, "connecting node %s to node %s", source, target);
+  flow_nodes_connect(flow, source, target);
+}
+
+void flow_exit(flow_node *node)
+{
+  flow_log(node->flow, FLOW_DEBUG, "node %s exiting", node->name);
+  flow_node_exit(node);
+}
+
+void *flow_create(void *message, size_t size, int type, const flow_table *table)
+{
+  return flow_message_create(message, size, type, table);
+}
+
+void flow_send(flow_node *node, void *message)
+{
+  flow_node_send(node, message);
+}
+
+void flow_send_and_release(flow_node *node, void *message)
+{
+  flow_node_send(node, message);
+  flow_message_release(message);
 }

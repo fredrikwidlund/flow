@@ -1,30 +1,37 @@
-AUTOMAKE_OPTIONS = subdir-objects
-ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS} -I m4
-AM_CFLAGS = -std=gnu11 -pedantic -g -O3 -flto -rdynamic -Isrc
-AM_LDFLAGS = -module
+AUTOMAKE_OPTIONS		= subdir-objects
+ACLOCAL_AMFLAGS			= ${ACLOCAL_FLAGS} -I m4
+AM_CFLAGS			= -std=gnu11 -rdynamic -fPIC
+AM_LDFLAGS			= -pthread
 
-EXTRA_DIST = \
-README.rst
+### libraries ###
 
-bin_PROGRAMS = \
+lib_LTLIBRARIES			= libflow.la
+
+libflow_la_SOURCES		= \
+src/flow.c \
+src/flow.h \
+src/flow_module.c \
+src/flow_module.h \
+src/flow_log.c \
+src/flow_log.h \
+src/flow_node.c \
+src/flow_node.h \
+src/flow_message.c \
+src/flow_message.h \
+src/flow_queue.c \
+src/flow_queue.h
+
+libflow_la_LIBADD		= -ldynamic -lreactor
+
+bin_PROGRAMS 			= \
 bin/flow
 
-FLOW_SOURCE_FILES = \
-src/main.c \
-src/flow.c
+bin_flow_SOURCES 		= \
+src/main.c
+bin_flow_LDFLAGS 		= -pthread -static
+bin_flow_LDADD 			= libflow.la -lreactor -ldynamic -ljansson -ldl -lltdl
 
-FLOW_HEADER_FILES = \
-src/flow.h
-
-bin_flow_SOURCES = $(FLOW_SOURCE_FILES) $(FLOW_HEADER_FILES)
-bin_flow_LDFLAGS = -pthread
-bin_flow_LDADD = -ldynamic -lreactor -ljansson -ldl
-
-pkglib_LTLIBRARIES = \
-module/capture.la \
-module/protocol.la
-
-module_capture_la_LIBADD = -ldynamic
+### other ###
 
 MAINTAINERCLEANFILES = aclocal.m4 config.h.in configure Makefile.in
 maintainer-clean-local:; rm -rf autotools m4
@@ -32,6 +39,13 @@ maintainer-clean-local:; rm -rf autotools m4
 CLEANFILES = {.,src}/*.{gcno,gcda,gcov}
 
 indent:
-	clang-format -i src/*.c module/*.c
+	clang-format -i src/*.c example/*.c
 
-.phony: indent
+memory: all
+	@valgrind -s --leak-check=full --track-fds=yes ./bin/flow ./etc/test.json
+
+test: all
+	@./bin/flow ./etc/test.json
+
+
+.phony: indent memory test

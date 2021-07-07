@@ -1,55 +1,46 @@
 #ifndef FLOW_H_INCLUDED
 #define FLOW_H_INCLUDED
 
-typedef struct flow_module_handlers flow_module_handlers;
-typedef struct flow_module          flow_module;
-typedef struct flow_edge            flow_edge;
-typedef struct flow_node            flow_node;
-typedef struct flow                 flow;
+#include <ltdl.h>
+#include <dynamic.h>
+#include <reactor.h>
+#include <jansson.h>
 
-struct flow_module_handlers
-{
-  void                 *(*load)(void);
-  void                 *(*create)(flow_node *, json_t *);
-  int                   (*start)(void *);
-  void                  (*receive)(void *, void *);
-  void                  (*destroy)(void *);
-  void                  (*unload)(void *);
-};
+typedef struct flow flow;
+struct flow;
 
-struct flow_module
-{
-  char                   *name;
-  void                   *object;
-  flow_module_handlers   *handlers;
-  void                   *state;
-};
+#include "flow_log.h"
+#include "flow_module.h"
+#include "flow_message.h"
+#include "flow_node.h"
 
-struct flow_edge
+enum
 {
-  const char             *type;
-  flow_node              *target;
-};
-
-struct flow_node
-{
-  flow_module            *module;
-  const char             *id;
-  list                    edges;
-  void                   *state;
+  FLOW_STATS = 0x02
 };
 
 struct flow
 {
-  json_t                 *spec;
-  list                    modules;
-  list                    nodes;
+  core_handler  user;
+  char         *name;
+  int           stats;
+  timer         timer;
+  flow_modules  modules;
+  flow_nodes    nodes;
 };
 
-void flow_construct(flow *);
-void flow_destruct(flow *);
-int  flow_load(flow *, char *);
-int  flow_configure(flow *, json_t *);
-void flow_send(flow_node *, void *);
+void  flow_construct(flow *, core_callback *, void *);
+void  flow_destruct(flow *);
+void  flow_open(flow *, json_t *);
+void  flow_close(flow *);
+void  flow_search(flow *, const char *);
+void  flow_load(flow *, const char *);
+void  flow_register(flow *, const char *);
+void  flow_add(flow *, const char *, json_t *);
+void  flow_connect(flow *, const char *, const char *);
+void  flow_exit(flow_node *);
+void *flow_create(void *, size_t, int, const flow_table *);
+void  flow_send(flow_node *, void *);
+void  flow_send_and_release(flow_node *, void *);
 
 #endif /* FLOW_H_INCLUDED */

@@ -5,25 +5,7 @@
 #include <reactor.h>
 
 #include "flow.h"
-
-static void usage(void)
-{
-  extern char *__progname;
-
-  (void) fprintf(stderr, "usage: %s GRAPH\n", __progname);
-  exit(1);
-}
-
-static json_t *load_configuration(char *path)
-{
-  json_t *spec;
-  json_error_t error;
-
-  spec = json_load_file(path, 0, &error);
-  if (!spec)
-    warnx("json_load_file: %s", error.text);
-  return spec;
-}
+#include "flow_log.h"
 
 static core_status flow_event(core_event *event)
 {
@@ -40,23 +22,27 @@ static core_status flow_event(core_event *event)
   return CORE_OK;
 }
 
-int main(int argc, char **argv)
+int main()
 {
   flow flow;
-  json_t *spec;
-
-  if (argc != 2)
-    usage();
 
   reactor_construct();
   flow_construct(&flow, flow_event, &flow);
 
-  spec = load_configuration(argv[1]);
-  flow_open(&flow, spec);
+  flow_search(&flow, ".");
+  flow_register(&flow, "sender");
+  flow_register(&flow, "receiver");
+  flow_add(&flow, "sender0", NULL);
+  flow_add(&flow, "receiver0", NULL);
+  flow_add(&flow, "receiver1", NULL);
+  flow_add(&flow, "receiver2", NULL);
+
+  flow_connect(&flow, "sender0", "receiver0");
+  flow_connect(&flow, "sender0", "receiver1");
+  flow_connect(&flow, "sender0", "receiver2");
 
   reactor_loop();
 
   flow_destruct(&flow);
   reactor_destruct();
-  json_decref(spec);
 }

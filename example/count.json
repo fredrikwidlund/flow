@@ -1,0 +1,20 @@
+{
+    "graph": {
+        "metadata": {
+            "debug": true,
+            "search": ["."],
+            "modules": []
+        },
+        "nodes": {
+            "sender": {},
+            "x": {"metadata": {"module": "receiver"}},
+            "receiver": {},
+            "receiver2": {}
+        },
+        "edges": [
+            {"source": "sender", "target": "x"},
+            {"source": "sender", "target": "receiver"},
+            {"source": "sender", "target": "receiver2"}
+        ]
+    }
+}
