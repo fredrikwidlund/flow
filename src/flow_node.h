@@ -5,6 +5,7 @@
 #include "flow_queue.h"
 
 typedef struct flow_node flow_node;
+typedef struct flow_edge flow_edge;
 typedef list             flow_nodes;
 
 struct flow_node
@@ -26,9 +27,16 @@ struct flow_node
   _Atomic size_t     sent;
 };
 
+struct flow_edge
+{
+  flow_node         *target;
+  int                type;
+  json_t            *spec;
+};
+
 void flow_nodes_construct(flow *);
 void flow_nodes_add(flow *, const char *, json_t *);
-void flow_nodes_connect(flow *, const char *, const char *);
+void flow_nodes_connect(flow *, const char *, const char *, json_t *);
 void flow_nodes_destruct(flow *);
 void flow_nodes_stop(flow *);
 

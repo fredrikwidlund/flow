@@ -12,23 +12,28 @@
 
 #include "flow.h"
 
-static core_status flow_stats(core_event *event)
+static core_status flow_stats_event(core_event *event)
 {
   flow *flow = event->state;
   flow_node *node;
-  int i = 0;
+  json_t *stats, *o;
+  core_status e;
 
   assert(event->type == TIMER_ALARM);
+
+  stats = json_object();
   list_foreach(&flow->nodes, node)
   {
-    (void) fprintf(stderr, "%s[%s] %lu/%lu", i ? ", " : "", node->name, node->received, node->sent);
-    i++;
-    node->sent = 0;
+    o = json_object();
+    json_object_set_new(o, "received", json_integer(node->received));
+    json_object_set_new(o, "sent", json_integer(node->sent));
+    json_object_set_new(stats, node->name, o);
     node->received = 0;
+    node->sent = 0;
   }
-  (void) fprintf(stderr, "\n");
-
-  return CORE_OK;
+  e = core_dispatch(&flow->user, FLOW_STATS, (uintptr_t) stats);
+  json_decref(stats);
+  return e;
 }
 
 void flow_construct(flow *flow, core_callback *callback, void *state)
@@ -38,7 +43,8 @@ void flow_construct(flow *flow, core_callback *callback, void *state)
   flow_log(flow, FLOW_DEBUG, "constructing flow");
   flow_modules_construct(&flow->modules);
   flow_nodes_construct(flow);
-  timer_construct(&flow->timer, flow_stats, flow);
+  maps_construct(&flow->symbols);
+  timer_construct(&flow->timer, flow_stats_event, flow);
 }
 
 void flow_open(flow *flow, json_t *spec)
@@ -53,8 +59,7 @@ void flow_open(flow *flow, json_t *spec)
   root = json_object_get(spec, "graph");
   metadata = json_object_get(root, "metadata");
 
-  if (json_is_true(json_object_get(metadata, "stats")))
-    timer_set(&flow->timer, 1000000000, 1000000000);
+  flow_stats(flow, json_is_true(json_object_get(metadata, "stats")));
 
   name = json_string_value(json_object_get(metadata, "name"));
   assert(name ? asprintf(&flow->name, "%s", name) : asprintf(&flow->name, "%d", getpid()) != -1);
@@ -85,7 +90,8 @@ void flow_open(flow *flow, json_t *spec)
   json_array_foreach(json_object_get(root, "edges"), index, value)
     flow_connect(flow,
                  json_string_value(json_object_get(value, "source")),
-                 json_string_value(json_object_get(value, "target")));
+                 json_string_value(json_object_get(value, "target")),
+                 json_object_get(value, "metadata"));
 }
 
 void flow_close(flow *flow)
@@ -100,7 +106,14 @@ void flow_destruct(flow *flow)
   flow_close(flow);
   flow_nodes_destruct(flow);
   flow_modules_destruct(flow);
+  maps_destruct(&flow->symbols, NULL);
   free(flow->name);
+}
+
+void flow_stats(flow *flow, int flag)
+{
+  if (flag)
+    timer_set(&flow->timer, 1000000000, 1000000000);
 }
 
 void flow_search(flow *flow, const char *path)
@@ -127,10 +140,10 @@ void flow_add(flow *flow, const char *name, json_t *spec)
   flow_nodes_add(flow, name, spec);
 }
 
-void flow_connect(flow *flow, const char *source, const char *target)
+void flow_connect(flow *flow, const char *source, const char *target, json_t *spec)
 {
   flow_log(flow, FLOW_DEBUG, "connecting node %s to node %s", source, target);
-  flow_nodes_connect(flow, source, target);
+  flow_nodes_connect(flow, source, target, spec);
 }
 
 void flow_exit(flow_node *node)
@@ -153,4 +166,26 @@ void flow_send_and_release(flow_node *node, void *message)
 {
   flow_node_send(node, message);
   flow_message_release(message);
+}
+
+void flow_release(void *message)
+{
+  flow_message_release(message);
+}
+
+int flow_type(void *message)
+{
+  return flow_message_type(message);
+}
+
+int flow_symbol(flow *flow, const char *name)
+{
+  int id;
+
+  id = maps_at(&flow->symbols, (char *) name);
+  if (id)
+    return id;
+  flow->symbol_count++;
+  maps_insert(&flow->symbols, (char *) name, flow->symbol_count, NULL);
+  return flow->symbol_count;
 }

@@ -118,22 +118,30 @@ void flow_node_construct(flow_node *node, flow *flow, flow_module *module, const
 
 void flow_node_send(flow_node *node, void *message)
 {
-  flow_node **i;
+  flow_edge *e;
 
   if (node->detached && node->attached_neighbours)
     flow_queue_send(&node->tail, message);
 
   if (node->detached_neighbours)
-    list_foreach(&node->edges, i) if ((*i)->detached)
-      flow_queue_send(&(*i)->head, message);
+  {
+    list_foreach(&node->edges, e)
+    {
+      if (e->target->detached && (e->type == 0 || e->type == flow_type(message)))
+        flow_queue_send(&e->target->head, message);
+    }
+  }
 
   /* send sync messages direct */
   if (!node->detached && node->attached_neighbours)
   {
-    list_foreach(&node->edges, i) if (!(*i)->detached)
+    list_foreach(&node->edges, e)
     {
-      (*i)->received++;
-      flow_module_receive((*i)->module, (*i)->state, message);
+      if (!e->target->detached && (e->type == 0 || e->type == flow_type(message)))
+      {
+        e->target->received++;
+        flow_module_receive(e->target->module, e->target->state, message);
+      }
     }
   }
 
@@ -210,13 +218,20 @@ void flow_nodes_add(flow *flow, const char *name, json_t *spec)
   flow_node_construct(list_push_back(nodes, NULL, sizeof *node), flow, module, name, spec);
 }
 
-void flow_nodes_connect(flow *flow, const char *source, const char *target)
+void flow_nodes_connect(flow *flow, const char *source, const char *target, json_t *spec)
 {
   flow_node *s, *t;
+  flow_edge *e;
+  const char *type;
 
   s = flow_nodes_lookup(flow, source);
   t = flow_nodes_lookup(flow, target);
-  list_push_back(&s->edges, &t, sizeof t);
+  e = list_push_back(&s->edges, NULL, sizeof *e);
+  e->target = t;
+  e->spec = spec;
+  type = json_string_value(json_object_get(spec, "type"));
+  if (type)
+    e->type = flow_symbol(flow, type);
   if (t->detached)
     s->detached_neighbours++;
   else

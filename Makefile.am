@@ -7,21 +7,32 @@ AM_LDFLAGS			= -pthread
 
 lib_LTLIBRARIES			= libflow.la
 
-libflow_la_SOURCES		= \
+SOURCE_FILES			= \
 src/flow.c \
-src/flow.h \
 src/flow_module.c \
-src/flow_module.h \
 src/flow_log.c \
-src/flow_log.h \
 src/flow_node.c \
-src/flow_node.h \
 src/flow_message.c \
+src/flow_queue.c
+
+HEADER_FILES			= \
+src/flow.h \
+src/flow_module.h \
+src/flow_log.h \
+src/flow_node.h \
 src/flow_message.h \
-src/flow_queue.c \
 src/flow_queue.h
 
+libflow_la_SOURCES		= $(SOURCE_FILES) $(HEADER_FILES)
 libflow_la_LIBADD		= -ldynamic -lreactor
+
+headerfilesdir 			= $(includedir)
+headerfiles_HEADERS		= $(HEADER_FILES)
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libflow.pc
+
+### flow program ###
 
 bin_PROGRAMS 			= \
 bin/flow

@@ -114,6 +114,8 @@ void flow_module_construct_static(flow *flow, flow_module *module, const char *n
   free(symbol_name);
   if (!module->table)
     flow_log(flow, FLOW_CRITICAL, "unable to locate module table in module %s", name);
+
+  flow_module_load(module, flow);
 }
 
 void flow_module_construct(flow *flow, flow_module *module, const char *name)
@@ -135,8 +137,9 @@ void flow_module_construct(flow *flow, flow_module *module, const char *name)
   free(symbol_name);
   if (!module->table)
     flow_log(flow, FLOW_CRITICAL, "unable to locate module table in module %s", name);
-
   lt_dladvise_destroy(&advise);
+
+  flow_module_load(module, flow);
 }
 
 void flow_module_destruct(flow_module *module)
@@ -146,10 +149,10 @@ void flow_module_destruct(flow_module *module)
   free(module->name);
 }
 
-void flow_module_load(flow_module *module)
+void flow_module_load(flow_module *module, flow *flow)
 {
   if (module->table->load)
-    module->state = module->table->load();
+    module->state = module->table->load(flow);
 }
 
 void flow_module_unload(flow_module *module)
