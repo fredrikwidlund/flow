@@ -11,5 +11,5 @@ LT_INIT
 AM_PROG_CC_C_O
 
 AC_PREFIX_DEFAULT(/usr)
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile libflow.pc])
 AC_OUTPUT

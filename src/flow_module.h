@@ -13,7 +13,7 @@ typedef list                     flow_modules;
 
 struct flow_module_table
 {
-  void *(*load)(void);
+  void *(*load)(void *);
   void  (*unload)(void *);
   void *(*create)(void *, json_t *);
   void  (*destroy)(void *);
@@ -40,7 +40,7 @@ void         flow_modules_destruct(flow *);
 void         flow_module_construct(flow *, flow_module *, const char *);
 void         flow_module_construct_static(flow *, flow_module *, const char *);
 void         flow_module_destruct(flow_module *);
-void         flow_module_load(flow_module *);
+void         flow_module_load(flow_module *, flow *);
 void         flow_module_unload(flow_module *);
 void        *flow_module_create(flow_module *, void *, json_t *);
 void         flow_module_destroy(flow_module *, void *);

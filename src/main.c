@@ -27,11 +27,30 @@ static json_t *load_configuration(char *path)
 
 static core_status flow_event(core_event *event)
 {
-  flow_log_message *message = (flow_log_message *) event->data;
+  flow_log_message *message;
+  json_t *stats, *o;
+  int i;
+  const char *name;
 
   switch (event->type)
   {
+  case FLOW_STATS:
+    stats = (json_t *) event->data;
+    flockfile(stdout);
+    fprintf(stdout, "[stats]");
+    i = 0;
+    json_object_foreach(stats, name, o)
+    {
+      fprintf(stdout, "%s%s %lld/%lld", i ? ", " : " ", name,
+              json_integer_value(json_object_get(o, "received")),
+              json_integer_value(json_object_get(o, "sent")));
+      i++;
+    }
+    fprintf(stdout, "\n");
+    funlockfile(stdout);
+    break;
   case FLOW_LOG:
+    message = (flow_log_message *) event->data;
     flockfile(stdout);
     fprintf(stdout, "[%s] %s\n", message->severity, message->description);
     funlockfile(stdout);

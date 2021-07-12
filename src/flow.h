@@ -16,7 +16,9 @@ struct flow;
 
 enum
 {
-  FLOW_STATS = 0x02
+  FLOW_ERROR    = 0,
+  FLOW_LOG,
+  FLOW_STATS
 };
 
 struct flow
@@ -27,20 +29,26 @@ struct flow
   timer         timer;
   flow_modules  modules;
   flow_nodes    nodes;
+  size_t        symbol_count;
+  maps          symbols;
 };
 
 void  flow_construct(flow *, core_callback *, void *);
 void  flow_destruct(flow *);
 void  flow_open(flow *, json_t *);
 void  flow_close(flow *);
+void  flow_stats(flow *, int);
 void  flow_search(flow *, const char *);
 void  flow_load(flow *, const char *);
 void  flow_register(flow *, const char *);
 void  flow_add(flow *, const char *, json_t *);
-void  flow_connect(flow *, const char *, const char *);
+void  flow_connect(flow *, const char *, const char *, json_t *);
 void  flow_exit(flow_node *);
 void *flow_create(void *, size_t, int, const flow_table *);
 void  flow_send(flow_node *, void *);
 void  flow_send_and_release(flow_node *, void *);
+void  flow_release(void *);
+int   flow_type(void *);
+int   flow_symbol(flow *, const char *);
 
 #endif /* FLOW_H_INCLUDED */
