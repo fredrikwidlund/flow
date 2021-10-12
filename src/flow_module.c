@@ -174,5 +174,6 @@ void flow_module_destroy(flow_module *module, void *state)
 
 void flow_module_receive(flow_module *module, void *state, void *message)
 {
-  module->table->receive(state, message);
+  if (module->table->receive)
+    module->table->receive(state, message);
 }

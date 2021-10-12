@@ -6,14 +6,6 @@
 
 #include "flow.h"
 
-static void usage(void)
-{
-  extern char *__progname;
-
-  (void) fprintf(stderr, "usage: %s GRAPH\n", __progname);
-  exit(1);
-}
-
 static json_t *load_configuration(char *path)
 {
   json_t *spec;
@@ -64,13 +56,10 @@ int main(int argc, char **argv)
   flow flow;
   json_t *spec;
 
-  if (argc != 2)
-    usage();
-
   reactor_construct();
   flow_construct(&flow, flow_event, &flow);
 
-  spec = load_configuration(argv[1]);
+  spec = load_configuration(argc >= 2 ? argv[1] : "flow.json");
   flow_open(&flow, spec);
 
   reactor_loop();
