@@ -19,6 +19,7 @@ static json_t *load_configuration(char *path)
 
 static core_status flow_event(core_event *event)
 {
+  flow *flow = event->state;
   flow_log_message *message;
   json_t *stats, *o;
   int i;
@@ -43,6 +44,8 @@ static core_status flow_event(core_event *event)
     break;
   case FLOW_LOG:
     message = (flow_log_message *) event->data;
+    if (message->level == FLOW_DEBUG && !flow->debug)
+      break;
     flockfile(stdout);
     fprintf(stdout, "[%s] %s\n", message->severity, message->description);
     funlockfile(stdout);

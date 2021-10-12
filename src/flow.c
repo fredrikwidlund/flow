@@ -40,7 +40,6 @@ void flow_construct(flow *flow, core_callback *callback, void *state)
 {
   *flow = (struct flow) {.user = {.callback = callback, .state = state}};
 
-  flow_log(flow, FLOW_DEBUG, "constructing flow");
   flow_modules_construct(&flow->modules);
   flow_nodes_construct(flow);
   maps_construct(&flow->symbols);
@@ -59,6 +58,7 @@ void flow_open(flow *flow, json_t *spec)
   root = json_object_get(spec, "graph");
   metadata = json_object_get(root, "metadata");
 
+  flow->debug = json_is_true(json_object_get(metadata, "debug"));
   flow_stats(flow, json_is_true(json_object_get(metadata, "stats")));
 
   name = json_string_value(json_object_get(metadata, "name"));
@@ -102,7 +102,6 @@ void flow_close(flow *flow)
 
 void flow_destruct(flow *flow)
 {
-  flow_log(flow, FLOW_DEBUG, "destructing flow");
   flow_close(flow);
   flow_nodes_destruct(flow);
   flow_modules_destruct(flow);

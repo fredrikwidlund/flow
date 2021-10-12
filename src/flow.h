@@ -25,6 +25,7 @@ struct flow
 {
   core_handler  user;
   char         *name;
+  int           debug;
   int           stats;
   timer         timer;
   flow_modules  modules;
