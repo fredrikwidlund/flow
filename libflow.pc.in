@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=${prefix}/include
+
+Name: libflow
+Description: Data flow event library
+Version: @VERSION@
+Libs: -L${libdir} -lreactor -ldynamic -ljansson -ldl -lltdl
+Cflags: -I${includedir} -flto

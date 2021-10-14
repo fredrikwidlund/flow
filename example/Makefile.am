@@ -12,14 +12,4 @@ sender_la_LIBADD		= -lreactor -ldynamic ../libflow.la
 pkglib_LTLIBRARIES		+= receiver.la
 receiver_la_LDFLAGS		= $(AM_LDFLAGS) -module
 
-bin_PROGRAMS 			= \
-count
-
-count_SOURCES			= \
-count.c	\
-sender_static.c \
-receiver_static.c
-
-count_LDFLAGS			= -static
-
 MAINTAINERCLEANFILES = Makefile.in

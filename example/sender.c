@@ -27,12 +27,6 @@ static core_status timeout(core_event *event)
   return CORE_OK;
 }
 
-static void *load(void)
-{
-  //flow_register(&segment_type);
-  return NULL;
-}
-
 static void *create(void *handle, json_t *spec)
 {
   struct sender *sender;
@@ -54,4 +48,4 @@ static void destroy(void *instance)
   free(sender);
 }
 
-flow_module_table sender_module_table = {.load = load, .create = create, .destroy = destroy};
+flow_module_table sender_module_table = {.create = create, .destroy = destroy};
