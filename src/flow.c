@@ -167,6 +167,11 @@ void flow_send_and_release(flow_node *node, void *message)
   flow_message_release(message);
 }
 
+void flow_hold(void *message)
+{
+  flow_message_hold(message);
+}
+
 void flow_release(void *message)
 {
   flow_message_release(message);

@@ -48,6 +48,7 @@ void  flow_exit(flow_node *);
 void *flow_create(void *, size_t, int, const flow_table *);
 void  flow_send(flow_node *, void *);
 void  flow_send_and_release(flow_node *, void *);
+void  flow_hold(void *);
 void  flow_release(void *);
 int   flow_type(void *);
 int   flow_symbol(flow *, const char *);
