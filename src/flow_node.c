@@ -57,10 +57,10 @@ static core_status flow_node_thread_receive(core_event *event)
 static void *flow_node_thread(void *arg)
 {
   flow_node *node = arg;
-  char name[256];
+  char name[16];
 
-  (void) snprintf(name, sizeof name, "[%s]%s", node->flow->name, node->name);
-  (void) pthread_setname_np(node->thread, name);
+  (void) snprintf(name, sizeof name, "%s/%s", node->flow->name, node->name);
+  (void) pthread_setname_np(pthread_self(), name);
 
   reactor_construct();
   flow_queue_listen(&node->tail, flow_node_thread_receive, node);

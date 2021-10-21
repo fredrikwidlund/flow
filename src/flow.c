@@ -62,7 +62,8 @@ void flow_open(flow *flow, json_t *spec)
   flow_stats(flow, json_is_true(json_object_get(metadata, "stats")));
 
   name = json_string_value(json_object_get(metadata, "name"));
-  assert(name ? asprintf(&flow->name, "%s", name) : asprintf(&flow->name, "%d", getpid()) != -1);
+  assert(name ? asprintf(&flow->name, "%s", name) : asprintf(&flow->name, "flow") != -1);
+  (void) pthread_setname_np(pthread_self(), flow->name);
 
   /* add module search paths */
   json_array_foreach(json_object_get(metadata, "search"), index, value)
