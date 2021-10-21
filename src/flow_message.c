@@ -34,7 +34,7 @@ void *flow_message_create(void *message, size_t size, int type, const flow_table
 {
   flow_envelope *envelope;
 
-  envelope = malloc(sizeof *envelope + size);
+  envelope = calloc(1, sizeof *envelope + size);
   *envelope = (flow_envelope) {.references = 1, .type = type, .table = table ? table : &flow_table_default};
   if (message)
     memcpy(envelope->message, message, size);
