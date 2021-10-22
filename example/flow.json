@@ -2,7 +2,7 @@
     "graph": {
         "metadata": {
             "debug": true,
-            "search": ["."],
+            "search": [".", "$(PWD)"],
             "modules": []
         },
         "nodes": {

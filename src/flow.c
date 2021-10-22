@@ -12,6 +12,70 @@
 
 #include "flow.h"
 
+static char *flow_string_replace(char *in)
+{
+  string s;
+  char *out, *value;
+  ssize_t p1, p2;
+
+  string_construct(&s);
+  string_insert(&s, 0, in);
+  while (1)
+  {
+    p1 = string_find(&s, "$(", 0);
+    if (p1 == -1)
+      break;
+    p2 = string_find(&s, ")", p1);
+    if (p2 == -1)
+      break;
+    string_data(&s)[p2] = 0;
+    value = getenv(string_data(&s) + p1 + 2);
+    string_replace(&s, p1, p2 + 1 - p1, value ? value : "");
+  }
+  out = strdup(string_data(&s));
+  string_destruct(&s);
+  return out;
+}
+
+static json_t *flow_substitute(json_t *value)
+{
+  json_t *object, *array, *element, *sub;
+  const char *key;
+  char *s;
+  size_t index;
+
+  switch (json_typeof(value))
+  {
+  case JSON_OBJECT:
+    object = json_object();
+    json_object_foreach(value, key, element)
+    {
+      s = flow_string_replace((char *) key);
+      json_object_set_new(object, s, flow_substitute(element));
+      free(s);
+    }
+    return object;
+  case JSON_ARRAY:
+    array = json_array();
+    json_array_foreach(value, index, element)
+        json_array_append_new(array, flow_substitute(element));
+    return array;
+  case JSON_STRING:
+    s = flow_string_replace((char *) json_string_value(value));
+    sub = json_string(s);
+    free(s);
+    return sub;
+  case JSON_INTEGER:
+  case JSON_REAL:
+  case JSON_TRUE:
+  case JSON_FALSE:
+  case JSON_NULL:
+  default:
+    json_incref(value);
+    return value;
+  }
+}
+
 static core_status flow_stats_event(core_event *event)
 {
   flow *flow = event->state;
@@ -48,15 +112,15 @@ void flow_construct(flow *flow, core_callback *callback, void *state)
 
 void flow_open(flow *flow, json_t *spec)
 {
-  json_t *root, *metadata;
+  json_t *metadata;
   const char *name, *key;
   json_t *value;
   size_t index;
 
   flow_log(flow, FLOW_DEBUG, "configuring flow");
 
-  root = json_object_get(spec, "graph");
-  metadata = json_object_get(root, "metadata");
+  flow->graph = flow_substitute(json_object_get(spec, "graph"));
+  metadata = json_object_get(flow->graph, "metadata");
 
   flow->debug = json_is_true(json_object_get(metadata, "debug"));
   flow_stats(flow, json_is_true(json_object_get(metadata, "stats")));
@@ -74,7 +138,7 @@ void flow_open(flow *flow, json_t *spec)
       flow_load(flow, json_string_value(value));
 
   /* load module dependencies */
-  json_object_foreach(json_object_get(root, "nodes"), key, value)
+  json_object_foreach(json_object_get(flow->graph, "nodes"), key, value)
   {
     name = json_string_value(json_object_get(json_object_get(value, "metadata"), "module"));
     if (name)
@@ -84,11 +148,11 @@ void flow_open(flow *flow, json_t *spec)
   }
 
   /* add nodes */
-  json_object_foreach(json_object_get(root, "nodes"), key, value)
+  json_object_foreach(json_object_get(flow->graph, "nodes"), key, value)
     flow_add(flow, key, json_object_get(value, "metadata"));
 
   /* connect nodes */
-  json_array_foreach(json_object_get(root, "edges"), index, value)
+  json_array_foreach(json_object_get(flow->graph, "edges"), index, value)
     flow_connect(flow,
                  json_string_value(json_object_get(value, "source")),
                  json_string_value(json_object_get(value, "target")),
@@ -108,6 +172,7 @@ void flow_destruct(flow *flow)
   flow_modules_destruct(flow);
   maps_destruct(&flow->symbols, NULL);
   free(flow->name);
+  json_decref(flow->graph);
 }
 
 void flow_stats(flow *flow, int flag)

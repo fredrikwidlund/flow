@@ -24,6 +24,7 @@ enum
 struct flow
 {
   core_handler  user;
+  json_t       *graph;
   char         *name;
   int           debug;
   int           stats;

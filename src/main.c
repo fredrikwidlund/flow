@@ -64,10 +64,10 @@ int main(int argc, char **argv)
 
   spec = load_configuration(argc >= 2 ? argv[1] : "flow.json");
   flow_open(&flow, spec);
+  json_decref(spec);
 
   reactor_loop();
 
   flow_destruct(&flow);
   reactor_destruct();
-  json_decref(spec);
 }
