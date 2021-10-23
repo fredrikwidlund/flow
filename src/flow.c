@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <pthread.h>
 #include <ltdl.h>
 
 #include <jansson.h>
@@ -43,6 +43,9 @@ static json_t *flow_substitute(json_t *value)
   const char *key;
   char *s;
   size_t index;
+
+  if (!value)
+    return NULL;
 
   switch (json_typeof(value))
   {
