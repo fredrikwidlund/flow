@@ -12,73 +12,6 @@
 
 #include "flow.h"
 
-static char *flow_string_replace(char *in)
-{
-  string s;
-  char *out, *value;
-  ssize_t p1, p2;
-
-  string_construct(&s);
-  string_insert(&s, 0, in);
-  while (1)
-  {
-    p1 = string_find(&s, "$(", 0);
-    if (p1 == -1)
-      break;
-    p2 = string_find(&s, ")", p1);
-    if (p2 == -1)
-      break;
-    string_data(&s)[p2] = 0;
-    value = getenv(string_data(&s) + p1 + 2);
-    string_replace(&s, p1, p2 + 1 - p1, value ? value : "");
-  }
-  out = strdup(string_data(&s));
-  string_destruct(&s);
-  return out;
-}
-
-static json_t *flow_substitute(json_t *value)
-{
-  json_t *object, *array, *element, *sub;
-  const char *key;
-  char *s;
-  size_t index;
-
-  if (!value)
-    return NULL;
-
-  switch (json_typeof(value))
-  {
-  case JSON_OBJECT:
-    object = json_object();
-    json_object_foreach(value, key, element)
-    {
-      s = flow_string_replace((char *) key);
-      json_object_set_new(object, s, flow_substitute(element));
-      free(s);
-    }
-    return object;
-  case JSON_ARRAY:
-    array = json_array();
-    json_array_foreach(value, index, element)
-        json_array_append_new(array, flow_substitute(element));
-    return array;
-  case JSON_STRING:
-    s = flow_string_replace((char *) json_string_value(value));
-    sub = json_string(s);
-    free(s);
-    return sub;
-  case JSON_INTEGER:
-  case JSON_REAL:
-  case JSON_TRUE:
-  case JSON_FALSE:
-  case JSON_NULL:
-  default:
-    json_incref(value);
-    return value;
-  }
-}
-
 static core_status flow_stats_event(core_event *event)
 {
   flow *flow = event->state;
@@ -122,7 +55,7 @@ void flow_open(flow *flow, json_t *spec)
 
   flow_log(flow, FLOW_DEBUG, "configuring flow");
 
-  flow->graph = flow_substitute(json_object_get(spec, "graph"));
+  flow->graph = json_deep_copy(json_object_get(spec, "graph"));
   metadata = json_object_get(flow->graph, "metadata");
 
   flow->debug = json_is_true(json_object_get(metadata, "debug"));
