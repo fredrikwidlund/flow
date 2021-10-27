@@ -48,7 +48,7 @@ void flow_construct(flow *flow, core_callback *callback, void *state)
 
 void flow_open(flow *flow, json_t *spec)
 {
-  json_t *metadata;
+  json_t *metadata, *node_spec;
   const char *name, *key;
   json_t *value;
   size_t index;
@@ -85,7 +85,11 @@ void flow_open(flow *flow, json_t *spec)
 
   /* add nodes */
   json_object_foreach(json_object_get(flow->graph, "nodes"), key, value)
-    flow_add(flow, key, json_object_get(value, "metadata"));
+    {
+      node_spec = json_deep_copy(json_object_get(metadata, "globals"));
+      json_object_update(node_spec, json_object_get(value, "metadata"));
+      flow_add(flow, key, node_spec);
+    }
 
   /* connect nodes */
   json_array_foreach(json_object_get(flow->graph, "edges"), index, value)

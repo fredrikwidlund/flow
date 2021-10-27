@@ -257,6 +257,7 @@ void flow_nodes_destruct(flow *flow)
   {
     flow_log(flow, FLOW_DEBUG, "removing node %s", node->name);
     free(node->name);
+    json_decref(node->metadata);
     list_destruct(&node->edges, NULL);
   }
   list_destruct(nodes, NULL);
