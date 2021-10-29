@@ -71,6 +71,7 @@ static core_status flow_event(core_event *event)
     log = (flow_log_event *) event->data;
     line = json_dumps(log->event, JSON_COMPACT | JSON_REAL_PRECISION(6));
     (void) fprintf(stdout, "%s\n", line);
+    (void) fflush(stdout);
     free(line);
     break;
   }
