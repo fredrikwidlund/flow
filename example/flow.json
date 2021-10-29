@@ -1,6 +1,7 @@
 {
     "graph": {
         "metadata": {
+            "state": true,
             "debug": true,
             "search": [".", "${PWD}"],
             "modules": [],
