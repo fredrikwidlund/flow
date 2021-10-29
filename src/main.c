@@ -26,11 +26,12 @@ static json_t *load_configuration(const char *path)
   f = fopen(path, "r");
   if (!f)
     err(1, "fopen");
-  data = malloc(st.st_size);
+  data = malloc(st.st_size + 1);
   n = fread(data, st.st_size, 1, f);
   if (n != 1)
     err(1, "fread");
   fclose(f);
+  data[st.st_size] = 0;
 
   /* replace ${name} values with environment variable */
   string_construct(&s);
@@ -61,36 +62,16 @@ static json_t *load_configuration(const char *path)
 
 static core_status flow_event(core_event *event)
 {
-  flow *flow = event->state;
-  flow_log_message *message;
-  json_t *stats, *o;
-  int i;
-  const char *name;
+  flow_log_event *log;
+  char *line;
 
   switch (event->type)
   {
-  case FLOW_STATS:
-    stats = (json_t *) event->data;
-    flockfile(stdout);
-    fprintf(stdout, "[stats]");
-    i = 0;
-    json_object_foreach(stats, name, o)
-    {
-      fprintf(stdout, "%s%s %lld/%lld", i ? ", " : " ", name,
-              json_integer_value(json_object_get(o, "received")),
-              json_integer_value(json_object_get(o, "sent")));
-      i++;
-    }
-    fprintf(stdout, "\n");
-    funlockfile(stdout);
-    break;
-  case FLOW_LOG:
-    message = (flow_log_message *) event->data;
-    if (message->level == FLOW_DEBUG && !flow->debug)
-      break;
-    flockfile(stdout);
-    fprintf(stdout, "[%s] %s\n", message->severity, message->description);
-    funlockfile(stdout);
+  case FLOW_EVENT:
+    log = (flow_log_event *) event->data;
+    line = json_dumps(log->event, JSON_COMPACT | JSON_REAL_PRECISION(6));
+    (void) fprintf(stdout, "%s\n", line);
+    free(line);
     break;
   }
   return CORE_OK;

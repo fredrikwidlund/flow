@@ -2,13 +2,25 @@
 
 #include "flow.h"
 
-static void receive(void *instance, void *message)
+struct state
+{
+  void *node;
+};
+
+static void receive(void *node, void *message)
 {
   int *count = message;
+  json_t *json;
 
-  (void) instance;
-  printf("%d\n", *count);
-  fflush(stdout);
+  json = json_integer(*count);
+  flow_log(node, FLOW_LOG_INFO, "count", json);
+  json_decref(json);
 }
 
-flow_module_table receiver_module_table = {.receive = receive};
+static void *create(void *node, json_t *spec)
+{
+  (void) spec;
+  return node;
+}
+
+flow_module_table receiver_module_table = {.create = create, .receive = receive};

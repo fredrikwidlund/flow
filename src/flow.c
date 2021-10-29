@@ -1,4 +1,4 @@
- #define _GNU_SOURCE
+#define _GNU_SOURCE
 
 #include <assert.h>
 #include <string.h>
@@ -12,12 +12,22 @@
 
 #include "flow.h"
 
+static core_status flow_events_event(core_event *event)
+{
+  flow *flow = event->state;
+  flow_log_event *log = (flow_log_event *) event->data;
+
+  assert(event->type == FLOW_QUEUE_MESSAGE);
+  core_dispatch(&flow->user, FLOW_EVENT, (uintptr_t) log);
+  flow_release(log);
+  return CORE_OK;
+}
+
 static core_status flow_stats_event(core_event *event)
 {
   flow *flow = event->state;
   flow_node *node;
   json_t *stats, *o;
-  core_status e;
 
   assert(event->type == TIMER_ALARM);
 
@@ -31,15 +41,17 @@ static core_status flow_stats_event(core_event *event)
     node->received = 0;
     node->sent = 0;
   }
-  e = core_dispatch(&flow->user, FLOW_STATS, (uintptr_t) stats);
+  flow_log_sync(flow, FLOW_LOG_INFO, "stats", stats);
   json_decref(stats);
-  return e;
+
+  return CORE_OK;
 }
 
 void flow_construct(flow *flow, core_callback *callback, void *state)
 {
   *flow = (struct flow) {.user = {.callback = callback, .state = state}};
 
+  flow_queue_construct(&flow->events_receive, &flow->events_send);
   flow_modules_construct(&flow->modules);
   flow_nodes_construct(flow);
   maps_construct(&flow->symbols);
@@ -53,7 +65,8 @@ void flow_open(flow *flow, json_t *spec)
   json_t *value;
   size_t index;
 
-  flow_log(flow, FLOW_DEBUG, "configuring flow");
+  flow_queue_listen(&flow->events_receive, flow_events_event, flow);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "configuring flow");
 
   flow->graph = json_deep_copy(json_object_get(spec, "graph"));
   metadata = json_object_get(flow->graph, "metadata");
@@ -101,17 +114,20 @@ void flow_open(flow *flow, json_t *spec)
 
 void flow_close(flow *flow)
 {
-  flow_log(flow, FLOW_DEBUG, "stopping flow");
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "stopping flow");
   flow_nodes_stop(flow);
+  flow_queue_unlisten(&flow->events_receive);
 }
 
 void flow_destruct(flow *flow)
 {
-  flow_close(flow);
+  // flow_close(flow); XXX should already be closed
   flow_nodes_destruct(flow);
   flow_modules_destruct(flow);
   maps_destruct(&flow->symbols, NULL);
   free(flow->name);
+  flow_queue_destruct(&flow->events_receive);
+  flow_queue_destruct(&flow->events_send);
   json_decref(flow->graph);
 }
 
@@ -123,37 +139,52 @@ void flow_stats(flow *flow, int flag)
 
 void flow_search(flow *flow, const char *path)
 {
-  flow_log(flow, FLOW_DEBUG, "adding path %s to module search paths", path);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "adding path %s to module search paths", path);
   flow_modules_search(path);
 }
 
 void flow_load(flow *flow, const char *name)
 {
-  flow_log(flow, FLOW_DEBUG, "adding module %s", name);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "adding module %s", name);
   flow_modules_load(flow, name);
 }
 
 void flow_register(flow *flow, const char *name)
 {
-  flow_log(flow, FLOW_DEBUG, "adding module %s", name);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "adding module %s", name);
   flow_modules_register(flow, name);
 }
 
 void flow_add(flow *flow, const char *name, json_t *spec)
 {
-  flow_log(flow, FLOW_DEBUG, "adding node %s", name);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "adding node %s", name);
   flow_nodes_add(flow, name, spec);
 }
 
 void flow_connect(flow *flow, const char *source, const char *target, json_t *spec)
 {
-  flow_log(flow, FLOW_DEBUG, "connecting node %s to node %s", source, target);
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "connecting node %s to node %s", source, target);
   flow_nodes_connect(flow, source, target, spec);
+}
+
+void flow_abort(flow_node *node, const char *format, ...)
+{
+  va_list ap;
+  char *line;
+  json_t *message;
+
+  va_start(ap, format);
+  assert(vasprintf(&line, format, ap) != -1);
+  message = json_string(line);
+  free(line);
+  flow_log_sync(node->flow, FLOW_LOG_CRIT, "message", message);
+  json_decref(message);
+  abort();
 }
 
 void flow_exit(flow_node *node)
 {
-  flow_log(node->flow, FLOW_DEBUG, "node %s exiting", node->name);
+  flow_log_sync_message(node->flow, FLOW_LOG_DEBUG, "node %s exiting", node->name);
   flow_node_exit(node);
 }
 

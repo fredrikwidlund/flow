@@ -87,7 +87,7 @@ void flow_modules_destruct(flow *flow)
 
   list_foreach(modules, module)
   {
-    flow_log(flow, FLOW_DEBUG, "removing module %s", module->name);
+    flow_log_sync_message(flow, FLOW_LOG_DEBUG, "removing module %s", module->name);
     flow_module_unload(module);
     flow_module_destruct(module);
   }
@@ -109,11 +109,11 @@ void flow_module_construct_static(flow *flow, flow_module *module, const char *n
   char *symbol_name;
 
   module->name = strdup(name);
-  asprintf(&symbol_name, "%s_module_table", name);
+  assert(asprintf(&symbol_name, "%s_module_table", name) != -1);
   module->table = dlsym(NULL, symbol_name);
   free(symbol_name);
   if (!module->table)
-    flow_log(flow, FLOW_CRITICAL, "unable to locate module table in module %s", name);
+    flow_log_sync_message(flow, FLOW_LOG_CRIT, "unable to locate module table in module %s", name);
 
   flow_module_load(module, flow);
 }
@@ -130,13 +130,13 @@ void flow_module_construct(flow *flow, flow_module *module, const char *name)
 
   module->handle = lt_dlopenadvise(module->name, advise);
   if (!module->handle)
-    flow_log(flow, FLOW_CRITICAL, "unable to load module %s, %s", name, lt_dlerror());
+    flow_log_sync_message(flow, FLOW_LOG_CRIT, "unable to load module %s, %s", name, lt_dlerror());
 
-  asprintf(&symbol_name, "%s_module_table", name);
+  assert(asprintf(&symbol_name, "%s_module_table", name) != -1);
   module->table = lt_dlsym(module->handle, symbol_name);
   free(symbol_name);
   if (!module->table)
-    flow_log(flow, FLOW_CRITICAL, "unable to locate module table in module %s", name);
+    flow_log_sync_message(flow, FLOW_LOG_CRIT, "unable to locate module table in module %s", name);
   lt_dladvise_destroy(&advise);
 
   flow_module_load(module, flow);

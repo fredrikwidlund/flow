@@ -49,7 +49,7 @@ static core_status flow_node_thread_receive(core_event *event)
     flow_message_release(message);
     return CORE_OK;
   default:
-    flow_log(node->flow, FLOW_CRITICAL, "unknown queue event %d", event->type);
+    flow_log_sync_message(node->flow, FLOW_LOG_CRIT, "unknown queue event %d", event->type);
     return CORE_ABORT;
   }
 }
@@ -78,7 +78,7 @@ static core_status flow_node_receive(core_event *event)
   switch (event->type)
   {
   case FLOW_QUEUE_END:
-    flow_log(node->flow, FLOW_DEBUG, "received shutdown from %s", node->name);
+    flow_log_sync_message(node->flow, FLOW_LOG_DEBUG, "received shutdown from %s", node->name);
     flow_close(node->flow);
     return CORE_OK;
   case FLOW_QUEUE_MESSAGE:
@@ -90,7 +90,7 @@ static core_status flow_node_receive(core_event *event)
     flow_message_release(message);
     return CORE_OK;
   default:
-    flow_log(node->flow, FLOW_CRITICAL, "unknown queue event %d", event->type);
+    flow_log_sync_message(node->flow, FLOW_LOG_CRIT, "unknown queue event %d", event->type);
     return CORE_ABORT;
   }
 }
@@ -191,7 +191,7 @@ static flow_node *flow_nodes_lookup(flow *flow, const char *name)
   if (name)
     list_foreach(nodes, node) if (strcmp(node->name, name) == 0)
       return node;
-  flow_log(flow, FLOW_CRITICAL, "unable to lookup node %s", name);
+  flow_log_sync_message(flow, FLOW_LOG_CRIT, "unable to lookup node %s", name);
   return NULL;
 }
 
@@ -214,7 +214,7 @@ void flow_nodes_add(flow *flow, const char *name, json_t *spec)
   else
     module = flow_modules_match_prefix(&flow->modules, name);
   if (!module)
-    flow_log(flow, FLOW_CRITICAL, "unable to find module for node %s", name);
+    flow_log_sync_message(flow, FLOW_LOG_CRIT, "unable to find module for node %s", name);
   flow_node_construct(list_push_back(nodes, NULL, sizeof *node), flow, module, name, spec);
 }
 
@@ -243,7 +243,7 @@ void flow_nodes_stop(flow *flow)
   flow_nodes *nodes = &flow->nodes;
   flow_node *node;
 
-  flow_log(flow, FLOW_DEBUG, "stopping nodes");
+  flow_log_sync_message(flow, FLOW_LOG_DEBUG, "stopping nodes");
   list_foreach(nodes, node)
     flow_node_stop(node);
 }
@@ -255,7 +255,7 @@ void flow_nodes_destruct(flow *flow)
 
   list_foreach(nodes, node)
   {
-    flow_log(flow, FLOW_DEBUG, "removing node %s", node->name);
+    flow_log_sync_message(flow, FLOW_LOG_DEBUG, "removing node %s", node->name);
     free(node->name);
     json_decref(node->metadata);
     list_destruct(&node->edges, NULL);
