@@ -56,10 +56,13 @@ void flow_log_message(flow_node *node, flow_log_level level, const char *format,
 {
   va_list ap;
   char *line;
+  json_t *message;
 
   va_start(ap, format);
   assert(vasprintf(&line, format, ap) != -1);
-  flow_log(node, level, "message", json_string(line));
+  message = json_string(line);
+  flow_log(node, level, "message", message);
+  json_decref(message);
   free(line);
 }
 
