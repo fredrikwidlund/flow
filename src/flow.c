@@ -115,13 +115,13 @@ void flow_open(flow *flow, json_t *spec)
 void flow_close(flow *flow)
 {
   flow_log_sync_message(flow, FLOW_LOG_DEBUG, "stopping flow");
-  flow_nodes_stop(flow);
-  flow_queue_unlisten(&flow->events_receive);
+  core_abort(NULL);
 }
 
 void flow_destruct(flow *flow)
 {
-  // flow_close(flow); XXX should already be closed
+  flow_queue_unlisten(&flow->events_receive);
+  flow_nodes_stop(flow);
   flow_nodes_destruct(flow);
   flow_modules_destruct(flow);
   maps_destruct(&flow->symbols, NULL);
