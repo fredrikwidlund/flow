@@ -3,7 +3,6 @@
 
 #include <ltdl.h>
 #include <jansson.h>
-#include <dynamic.h>
 
 #include "flow_message.h"
 

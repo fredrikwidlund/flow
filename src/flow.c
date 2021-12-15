@@ -47,10 +47,11 @@ static core_status flow_stats_event(core_event *event)
   return CORE_OK;
 }
 
-void flow_construct(flow *flow, core_callback *callback, void *state)
+void flow_construct(flow *flow, reactor_callback *callback, void *state)
 {
-  *flow = (struct flow) {.user = {.callback = callback, .state = state}};
+  *flow = (struct flow) {0};
 
+  reactor_handler_construct(&flow->handler, callback, state);
   flow_queue_construct(&flow->events_receive, &flow->events_send);
   flow_modules_construct(&flow->modules);
   flow_nodes_construct(flow);

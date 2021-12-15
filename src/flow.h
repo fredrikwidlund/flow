@@ -2,7 +2,6 @@
 #define FLOW_H_INCLUDED
 
 #include <ltdl.h>
-#include <dynamic.h>
 #include <reactor.h>
 #include <jansson.h>
 
@@ -22,7 +21,7 @@ enum
 
 struct flow
 {
-  core_handler  user;
+  reactor_handler  handler;
   json_t       *graph;
   char         *name;
   int           debug;
@@ -38,7 +37,7 @@ struct flow
   maps          symbols;
 };
 
-void  flow_construct(flow *, core_callback *, void *);
+void  flow_construct(flow *, reactor_callback *, void *);
 void  flow_destruct(flow *);
 void  flow_open(flow *, json_t *);
 void  flow_close(flow *);

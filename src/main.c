@@ -60,7 +60,7 @@ static json_t *load_configuration(const char *path)
   return spec;
 }
 
-static core_status flow_event(core_event *event)
+static void flow_event(reactor_event *event)
 {
   flow_log_event *log;
   char *line;
@@ -75,7 +75,6 @@ static core_status flow_event(core_event *event)
     free(line);
     break;
   }
-  return CORE_OK;
 }
 
 int main(int argc, char **argv)

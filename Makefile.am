@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS		= subdir-objects
 ACLOCAL_AMFLAGS			= ${ACLOCAL_FLAGS} -I m4
-AM_CFLAGS			= -std=gnu11 -rdynamic -fPIC
+AM_CFLAGS			= -std=gnu11 -fPIC
 AM_LDFLAGS			= -static
 
 ### libraries ###
@@ -24,7 +24,7 @@ src/flow_message.h \
 src/flow_queue.h
 
 libflow_la_SOURCES		= $(SOURCE_FILES) $(HEADER_FILES)
-libflow_la_LIBADD		= -ldynamic -lreactor
+libflow_la_LIBADD		= -lreactor
 
 headerfilesdir 			= $(includedir)
 headerfiles_HEADERS		= $(HEADER_FILES)
@@ -41,7 +41,7 @@ bin_flow_SOURCES 		= \
 src/main.c
 
 bin_flow_LDFLAGS 		= -pthread -static
-bin_flow_LDADD 			= libflow.la -lreactor -ldynamic -ljansson -ldl -lltdl
+bin_flow_LDADD 			= libflow.la -lreactor -ljansson -ldl -lltdl
 
 ### other ###
 
