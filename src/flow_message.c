@@ -4,8 +4,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include <dynamic.h>
-
 #include "flow.h"
 
 typedef struct flow_envelope flow_envelope;

@@ -7,29 +7,27 @@
 #include <ltdl.h>
 
 #include <jansson.h>
-#include <dynamic.h>
 #include <reactor.h>
 
 #include "flow.h"
 
-static core_status flow_events_event(core_event *event)
+static void flow_events_event(reactor_event *event)
 {
   flow *flow = event->state;
   flow_log_event *log = (flow_log_event *) event->data;
 
   assert(event->type == FLOW_QUEUE_MESSAGE);
-  core_dispatch(&flow->user, FLOW_EVENT, (uintptr_t) log);
+  reactor_dispatch(&flow->handler, FLOW_EVENT, (uintptr_t) log);
   flow_release(log);
-  return CORE_OK;
 }
 
-static core_status flow_stats_event(core_event *event)
+static void flow_stats_event(reactor_event *event)
 {
   flow *flow = event->state;
   flow_node *node;
   json_t *stats, *o;
 
-  assert(event->type == TIMER_ALARM);
+  assert(event->type == TIMER_EXPIRATION);
 
   stats = json_object();
   list_foreach(&flow->nodes, node)
@@ -43,8 +41,6 @@ static core_status flow_stats_event(core_event *event)
   }
   flow_log_sync(flow, FLOW_LOG_INFO, "stats", stats);
   json_decref(stats);
-
-  return CORE_OK;
 }
 
 void flow_construct(flow *flow, reactor_callback *callback, void *state)
@@ -116,7 +112,7 @@ void flow_open(flow *flow, json_t *spec)
 void flow_close(flow *flow)
 {
   flow_log_sync_message(flow, FLOW_LOG_DEBUG, "stopping flow");
-  core_abort(NULL);
+  reactor_abort();
 }
 
 void flow_destruct(flow *flow)

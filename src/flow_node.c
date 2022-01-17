@@ -18,7 +18,6 @@
 #include <ltdl.h>
 
 #include <jansson.h>
-#include <dynamic.h>
 #include <reactor.h>
 
 #include "flow.h"
@@ -32,7 +31,7 @@
 /* flow node */
 /*************/
 
-static core_status flow_node_thread_receive(core_event *event)
+static void flow_node_thread_receive(reactor_event *event)
 {
   flow_node *node = event->state;
   void *message = (void *) event->data;
@@ -42,15 +41,15 @@ static core_status flow_node_thread_receive(core_event *event)
   case FLOW_QUEUE_END:
     flow_queue_unlisten(&node->tail);
     flow_module_destroy(node->module, node->state);
-    return CORE_ABORT;
+    break;
   case FLOW_QUEUE_MESSAGE:
     node->received++;
     flow_module_receive(node->module, node->state, message);
     flow_message_release(message);
-    return CORE_OK;
+    break;
   default:
     flow_log_sync_message(node->flow, FLOW_LOG_CRIT, "unknown queue event %d", event->type);
-    return CORE_ABORT;
+    break;
   }
 }
 
@@ -70,7 +69,7 @@ static void *flow_node_thread(void *arg)
   return NULL;
 }
 
-static core_status flow_node_receive(core_event *event)
+static void flow_node_receive(reactor_event *event)
 {
   flow_node *node = event->state, **i;
   void *message = (void *) event->data;
@@ -80,7 +79,7 @@ static core_status flow_node_receive(core_event *event)
   case FLOW_QUEUE_END:
     flow_log_sync_message(node->flow, FLOW_LOG_DEBUG, "received shutdown from %s", node->name);
     flow_close(node->flow);
-    return CORE_OK;
+    break;
   case FLOW_QUEUE_MESSAGE:
     list_foreach(&node->edges, i) if (!(*i)->detached)
     {
@@ -88,10 +87,10 @@ static core_status flow_node_receive(core_event *event)
       flow_module_receive((*i)->module, (*i)->state, message);
     }
     flow_message_release(message);
-    return CORE_OK;
+    break;
   default:
     flow_log_sync_message(node->flow, FLOW_LOG_CRIT, "unknown queue event %d", event->type);
-    return CORE_ABORT;
+    break;
   }
 }
 

@@ -74,11 +74,11 @@ void flow_log_sync(flow *flow, flow_log_level level, const char *name, json_t *v
     return;
 
   log = flow_log_create(NULL, level, name, value);
-  core_dispatch(&flow->user, FLOW_EVENT, (uintptr_t) log);
+  reactor_dispatch(&flow->handler, FLOW_EVENT, (uintptr_t) log);
   flow_release(log);
   if (level <= FLOW_LOG_CRIT)
   {
-    core_dispatch(&flow->user, FLOW_ERROR, 0);
+    reactor_dispatch(&flow->handler, FLOW_ERROR, 0);
     exit(1);
   }
 }

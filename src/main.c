@@ -1,62 +1,45 @@
 #include <stdio.h>
 #include <string.h>
 #include <err.h>
+#include <assert.h>
 #include <sys/stat.h>
 
 #include <reactor.h>
 
 #include "flow.h"
 
+data data_merge(data d1, data d2)
+{
+  return data_construct(data_base(d1), data_offset(d1, d2) + data_size(d2));
+}
+
 static json_t *load_configuration(const char *path)
 {
-  struct stat st;
-  int e;
-  FILE *f;
-  char *data;
+  string s;
+  data prefix, postfix;
+  char *value;
   json_t *spec;
   json_error_t error;
-  string s;
-  char *out, *value;
-  ssize_t n, p1, p2;
 
-  /* load file */
-  e = stat(path, &st);
-  if (e == -1)
-    err(1, "stat");
-  f = fopen(path, "r");
-  if (!f)
-    err(1, "fopen");
-  data = malloc(st.st_size + 1);
-  n = fread(data, st.st_size, 1, f);
-  if (n != 1)
-    err(1, "fread");
-  fclose(f);
-  data[st.st_size] = 0;
-
-  /* replace ${name} values with environment variable */
-  string_construct(&s);
-  string_insert(&s, 0, data);
-  free(data);
+  s = string_load(path);
   while (1)
   {
-    p1 = string_find(&s, "${", 0);
-    if (p1 == -1)
+    prefix = string_find_data(s, data_string("${"));
+    if (data_empty(prefix))
       break;
-    p2 = string_find(&s, "}", p1);
-    if (p2 == -1)
+    postfix = string_find_at_data(s, data_offset(string_data(s), prefix) + data_size(prefix), data_string("}"));
+    if (data_empty(postfix))
       break;
-    string_data(&s)[p2] = 0;
-    value = getenv(string_data(&s) + p1 + 2);
-    string_replace(&s, p1, p2 + 1 - p1, value ? value : "");
+    ((char *) data_base(postfix))[0] = 0;
+    value = getenv((char *) data_base(prefix) + data_size(prefix));
+    if (value)
+      s = string_replace_data(s, data_merge(prefix, postfix), data_string(value));
   }
-  out = strdup(string_data(&s));
-  string_destruct(&s);
 
-  /* load json */
-  spec = json_loads(out, 0, &error);
+  spec = json_loads(s, 0, &error);
   if (!spec)
     errx(1, "json_loads: %s", error.text);
-  free(out);
+  string_free(s);
   return spec;
 }
 
@@ -81,11 +64,19 @@ int main(int argc, char **argv)
 {
   flow flow;
   json_t *spec;
+  char *s;
+
+  spec = load_configuration(argc >= 2 ? argv[1] : "flow.json");
+  s = json_dumps(spec, JSON_INDENT(2));
+  printf("spec: %s\n", s);
+  free(s);
+  json_decref(spec);
+  return 0;
 
   reactor_construct();
   flow_construct(&flow, flow_event, &flow);
 
-  spec = load_configuration(argc >= 2 ? argv[1] : "flow.json");
+
   flow_open(&flow, spec);
   json_decref(spec);
 

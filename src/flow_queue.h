@@ -1,6 +1,8 @@
 #ifndef FLOW_QUEUE_H_INCLUDED
 #define FLOW_QUEUE_H_INCLUDED
 
+#include <reactor.h>
+
 #include "flow_message.h"
 
 enum
@@ -13,10 +15,11 @@ typedef struct flow_queue flow_queue;
 
 struct flow_queue
 {
-  reactor_handler handler;
-  reactor_handler socket_handler;
-  int             socket;
-  int             cancel;
+  reactor_handler  handler;
+  reactor_handler  socket_handler;
+  int              socket;
+  int             *cancel;
+  int              active;
 };
 
 void flow_queue_construct(flow_queue *, flow_queue *);

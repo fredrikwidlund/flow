@@ -22,19 +22,19 @@ enum
 struct flow
 {
   reactor_handler  handler;
-  json_t       *graph;
-  char         *name;
-  int           debug;
-  int           stats;
-  timer         timer;
+  json_t          *graph;
+  char            *name;
+  int              debug;
+  int              stats;
+  timer            timer;
 
-  flow_queue    events_receive;
-  flow_queue    events_send;
+  flow_queue       events_receive;
+  flow_queue       events_send;
 
-  flow_modules  modules;
-  flow_nodes    nodes;
-  size_t        symbol_count;
-  maps          symbols;
+  flow_modules     modules;
+  flow_nodes       nodes;
+  size_t           symbol_count;
+  maps             symbols;
 };
 
 void  flow_construct(flow *, reactor_callback *, void *);

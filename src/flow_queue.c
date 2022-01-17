@@ -7,7 +7,7 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 
-#include <dynamic.h>
+#include <reactor.h>
 
 #include "flow_queue.h"
 
@@ -23,12 +23,11 @@ static int flow_queue_read(flow_queue *queue, void **message)
   return 1;
 }
 
-static core_status flow_queue_receive(core_event *event)
+static void flow_queue_receive(reactor_event *event)
 {
   flow_queue *queue = event->state;
   void *message;
   int n, cancel = 0;
-  core_status e;
 
   queue->cancel = &cancel;
   while (1)
@@ -45,8 +44,9 @@ static core_status flow_queue_receive(core_event *event)
 
 void flow_queue_construct(flow_queue *head, flow_queue *tail)
 {
-  int fd[2];
+  int fd[2] = {-1, -1};
 
+  // XXX socketpair
   *head = (flow_queue) {.socket = fd[0], .active = 1};
   *tail = (flow_queue) {.socket = fd[1], .active = 1};
 }
@@ -98,4 +98,4 @@ void flow_queue_destruct(flow_queue *queue)
   flow_queue_flush(queue);
   flow_queue_unlisten(queue);
 }
-}
+
