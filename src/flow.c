@@ -48,7 +48,11 @@ void flow_construct(flow *flow, reactor_callback *callback, void *state)
   *flow = (struct flow) {0};
 
   reactor_handler_construct(&flow->handler, callback, state);
-  flow_queue_construct(&flow->events_receive, &flow->events_send);
+
+  flow_queue_construct(&flow->events_send, NULL, NULL);
+  flow_queue_construct(&flow->events_receive, flow_events_event, flow);
+  flow_queue_pair(&flow->events_send, &flow->events_receive);
+
   flow_modules_construct(&flow->modules);
   flow_nodes_construct(flow);
   maps_construct(&flow->symbols);
@@ -62,7 +66,7 @@ void flow_open(flow *flow, json_t *spec)
   json_t *value;
   size_t index;
 
-  flow_queue_listen(&flow->events_receive, flow_events_event, flow);
+  flow_queue_open(&flow->events_receive);
   flow_log_sync_message(flow, FLOW_LOG_DEBUG, "configuring flow");
 
   flow->graph = json_deep_copy(json_object_get(spec, "graph"));
@@ -95,11 +99,12 @@ void flow_open(flow *flow, json_t *spec)
 
   /* add nodes */
   json_object_foreach(json_object_get(flow->graph, "nodes"), key, value)
-    {
-      node_spec = json_deep_copy(json_object_get(metadata, "globals"));
-      json_object_update(node_spec, json_object_get(value, "metadata"));
-      flow_add(flow, key, node_spec);
-    }
+  {
+    node_spec = json_object();
+    json_object_update(node_spec, json_object_get(metadata, "globals"));
+    json_object_update(node_spec, json_object_get(value, "metadata"));
+    flow_add(flow, key, node_spec);
+  }
 
   /* connect nodes */
   json_array_foreach(json_object_get(flow->graph, "edges"), index, value)
@@ -117,7 +122,7 @@ void flow_close(flow *flow)
 
 void flow_destruct(flow *flow)
 {
-  flow_queue_unlisten(&flow->events_receive);
+  flow_queue_close(&flow->events_receive);
   flow_nodes_stop(flow);
   flow_nodes_destruct(flow);
   flow_modules_destruct(flow);

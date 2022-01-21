@@ -39,7 +39,7 @@ static void flow_node_thread_receive(reactor_event *event)
   switch (event->type)
   {
   case FLOW_QUEUE_END:
-    flow_queue_unlisten(&node->tail);
+    flow_queue_close(&node->tail);
     flow_module_destroy(node->module, node->state);
     break;
   case FLOW_QUEUE_MESSAGE:
@@ -62,10 +62,11 @@ static void *flow_node_thread(void *arg)
   (void) pthread_setname_np(pthread_self(), name);
 
   reactor_construct();
-  flow_queue_listen(&node->tail, flow_node_thread_receive, node);
+  flow_queue_open(&node->tail);
   node->state = flow_module_create(node->module, node, node->metadata);
   reactor_loop();
   reactor_destruct();
+
   return NULL;
 }
 
@@ -105,8 +106,10 @@ void flow_node_construct(flow_node *node, flow *flow, flow_module *module, const
 
   if (node->detached)
   {
-    flow_queue_construct(&node->head, &node->tail);
-    flow_queue_listen(&node->head, flow_node_receive, node);
+    flow_queue_construct(&node->head, flow_node_receive, node);
+    flow_queue_construct(&node->tail, flow_node_thread_receive, node);
+    flow_queue_pair(&node->head, &node->tail);
+    flow_queue_open(&node->head);
     pthread_create(&node->thread, NULL, flow_node_thread, node);
   }
   else
@@ -120,14 +123,18 @@ void flow_node_send(flow_node *node, void *message)
   flow_edge *e;
 
   if (node->detached && node->attached_neighbours)
+  {
     flow_queue_send(&node->tail, message);
+  }
 
   if (node->detached_neighbours)
   {
     list_foreach(&node->edges, e)
     {
       if (e->target->detached && (e->type == 0 || e->type == flow_type(message)))
+      {
         flow_queue_send(&e->target->head, message);
+      }
     }
   }
 
@@ -150,7 +157,9 @@ void flow_node_send(flow_node *node, void *message)
 void flow_node_exit(flow_node *node)
 {
   if (node->detached)
+  {
     flow_queue_send(&node->tail, NULL);
+  }
   else
     flow_close(node->flow);
 }

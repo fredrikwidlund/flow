@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <dynamic.h>
 #include <reactor.h>
 #include <jansson.h>
 
@@ -14,17 +13,16 @@ struct sender
   timer timer;
 };
 
-static core_status timeout(core_event *event)
+static void timeout(reactor_event *event)
 {
   struct sender *sender = event->state;
 
-  assert(event->type == TIMER_ALARM);
+  assert(event->type == TIMER_EXPIRATION);
   if (sender->count > 3)
     flow_exit(sender->handle);
   else
     flow_send_and_release(sender->handle, flow_create((int[]){sender->count}, sizeof(int), 0, NULL));
   sender->count++;
-  return CORE_OK;
 }
 
 static void *create(void *handle, json_t *spec)

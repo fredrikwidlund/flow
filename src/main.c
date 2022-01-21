@@ -8,11 +8,6 @@
 
 #include "flow.h"
 
-data data_merge(data d1, data d2)
-{
-  return data_construct(data_base(d1), data_offset(d1, d2) + data_size(d2));
-}
-
 static json_t *load_configuration(const char *path)
 {
   string s;
@@ -64,19 +59,11 @@ int main(int argc, char **argv)
 {
   flow flow;
   json_t *spec;
-  char *s;
 
   spec = load_configuration(argc >= 2 ? argv[1] : "flow.json");
-  s = json_dumps(spec, JSON_INDENT(2));
-  printf("spec: %s\n", s);
-  free(s);
-  json_decref(spec);
-  return 0;
 
   reactor_construct();
   flow_construct(&flow, flow_event, &flow);
-
-
   flow_open(&flow, spec);
   json_decref(spec);
 
