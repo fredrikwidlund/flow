@@ -1,63 +1,48 @@
-AUTOMAKE_OPTIONS		= subdir-objects
-ACLOCAL_AMFLAGS			= ${ACLOCAL_FLAGS} -I m4
-AM_CFLAGS			= -std=gnu11 -rdynamic -fPIC
-AM_LDFLAGS			= -static
+ACLOCAL_AMFLAGS		= ${ACLOCAL_FLAGS} -I m4
+EXTRA_DIST		= autogen.sh
+MAINTAINERCLEANFILES	= aclocal.m4 configure Makefile.in
+AM_CFLAGS		= -std=gnu2x -flto -rdynamic -Wall -Werror -pedantic -I $(top_srcdir)/src
+AM_LDFLAGS		= -pthread
 
-### libraries ###
+bin_PROGRAMS 		= flow
+flow_SOURCES 		= src/main.c
+flow_CFLAGS		= $(AM_CFLAGS) -static
+flow_LDADD 		= libflow.la -lreactor -ljansson
 
-lib_LTLIBRARIES			= libflow.la
+lib_LTLIBRARIES		= libflow.la
 
-SOURCE_FILES			= \
+FLOW_SOURCE_FILES 	= \
 src/flow.c \
-src/flow_module.c \
-src/flow_log.c \
-src/flow_node.c \
-src/flow_message.c \
-src/flow_queue.c
+src/graph.c \
+src/symbols.c \
+src/modules.c \
+src/thread.c \
+src/node.c \
+src/edge.c \
+src/queue.c \
+src/message.c \
+src/log.c
 
-HEADER_FILES			= \
+FLOW_HEADER_FILES	= \
 src/flow.h \
-src/flow_module.h \
-src/flow_log.h \
-src/flow_node.h \
-src/flow_message.h \
-src/flow_queue.h
+src/graph.h \
+src/symbols.h \
+src/modules.h \
+src/thread.h \
+src/node.h \
+src/edge.h \
+src/queue.h \
+src/message.h \
+src/log.h
 
-libflow_la_SOURCES		= $(SOURCE_FILES) $(HEADER_FILES)
-libflow_la_LIBADD		= -lreactor
+libflow_la_SOURCES	= $(FLOW_SOURCE_FILES) $(FLOW_HEADER_FILES)
+libflow_la_LIBADD	= -lreactor -ljansson -ldl -lltdl
 
-headerfilesdir 			= $(includedir)/flow
-headerfiles_HEADERS		= $(HEADER_FILES)
+#headerfilesdir 		= $(includedir)/flow
+#headerfiles_HEADERS 	= $(FLOW_HEADER_FILES)
 
-pkgconfigdir 			= $(libdir)/pkgconfig
-pkgconfig_DATA 			= libflow.pc
+mainheaderdir 		= $(includedir)
+mainheader_HEADERS 	= src/flow.h
 
-### flow program ###
-
-bin_PROGRAMS 			= \
-bin/flow
-
-bin_flow_SOURCES 		= \
-src/main.c
-
-bin_flow_LDFLAGS 		= -pthread -static
-bin_flow_LDADD 			= libflow.la -lreactor -ljansson -ldl -lltdl
-
-### other ###
-
-MAINTAINERCLEANFILES = aclocal.m4 config.h.in configure Makefile.in
-maintainer-clean-local:; rm -rf autotools m4
-
-CLEANFILES = {.,src}/*.{gcno,gcda,gcov}
-
-indent:
-	clang-format -i src/*.c example/*.c
-
-memory: all
-	@valgrind -s --leak-check=full --track-fds=yes ./bin/flow ./etc/test.json
-
-test: all
-	@./bin/flow ./etc/test.json
-
-
-.phony: indent memory test
+maintainer-clean-local:
+	rm -rf autotools m4

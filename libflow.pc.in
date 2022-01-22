@@ -4,7 +4,6 @@ libdir=@libdir@
 includedir=${prefix}/include
 
 Name: libflow
-Description: Data flow event library
+Description: Event driven flow architecture framework
 Version: @VERSION@
-Libs: -L${libdir} -lreactor -ldynamic -ljansson -ldl -lltdl
-Cflags: -I${includedir} -flto
+Libs: -L${libdir} -ljansson -lreactor

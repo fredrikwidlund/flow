@@ -1,0 +1,18 @@
+{
+    "graph": {
+        "metadata": {
+            "search": ["example"],
+            "globals": {"test": 42}
+        },
+        "nodes": {
+            "example": {},
+            "g0": {"metadata": {"module": "generator", "group": "a"}},
+            "d0": {"metadata": {"module": "duplicator", "group": "a"}},
+            "c0": {"metadata": {"module": "counter", "group": "a"}}
+        },
+        "edges": [
+            {"source": "g0", "target": "d0"},
+            {"source": "d0", "target": "c0"}
+        ]
+    }
+}
